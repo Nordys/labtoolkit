@@ -1,5 +1,5 @@
 'use strict';
-const HISTORY_KEY='labcalc-history-v2',THEME_KEY='labcalc-theme',INPUT_KEY='labcalc-last-inputs',DIFF_KEY='labcalc-diff',FIELD_KEY='labcalc-field',MORPH_KEY='labcalc-morph',KEYMAP_KEY='labcalc-keymap';
+const HISTORY_KEY='labcalc-history-v2',THEME_KEY='labcalc-theme',INPUT_KEY='labcalc-last-inputs',DIFF_KEY='labcalc-diff',FIELD_KEY='labcalc-field',MORPH_KEY='labcalc-morph',KEYMAP_KEY='labcalc-keymap',SOUND_KEY='labcalc-sound-enabled';
 const $=id=>document.getElementById(id); const qsa=s=>[...document.querySelectorAll(s)];
 const todayString=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const numberValue=id=>{const v=Number($(id).value);return Number.isFinite(v)?v:NaN};
@@ -54,67 +54,151 @@ const defaultKeyMap={
 };
 let keyMap={...defaultKeyMap,...safeParse(KEYMAP_KEY,{})};
 let diff=safeParse(DIFF_KEY,{counts:{},stack:[],target:100,completed:false});
-diffTypes.forEach(({name})=>diff.counts[name]??=0);
+if(!diff||typeof diff!=='object')diff={counts:{},stack:[],target:100,completed:false};
+if(!diff.counts||typeof diff.counts!=='object')diff.counts={};
+if(!Array.isArray(diff.stack))diff.stack=[];
+diff.target=Math.max(1,Number(diff.target)||100);
+diffTypes.forEach(({name})=>diff.counts[name]=Math.max(0,Number(diff.counts[name])||0));
 $('diffTarget').value=diff.target;
+let diffEditMode=false;
+let soundEnabled=safeParse(SOUND_KEY,false)===true;
+let audioContext=null;
+const diffFeedbackTimers=new Map();
 function diffTotal(){return diffTypes.filter(t=>t.included).reduce((sum,t)=>sum+(diff.counts[t.name]||0),0)}
 
 function isDiffComplete(){return diffTotal()>=Math.max(1,Number($('diffTarget').value)||100)}
+function getAudioContext(){
+  if(!soundEnabled)return null;
+  try{
+    const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+    if(!AudioContextClass)return null;
+    audioContext??=new AudioContextClass();
+    if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});
+    return audioContext;
+  }catch{return null}
+}
+function playTone(context,frequency,start,duration,volume=.035){
+  try{
+    const oscillator=context.createOscillator(),gain=context.createGain(),at=context.currentTime+start;
+    oscillator.type='sine';oscillator.frequency.setValueAtTime(frequency,at);
+    gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(volume,at+.006);gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
+    oscillator.connect(gain);gain.connect(context.destination);oscillator.start(at);oscillator.stop(at+duration+.01);
+  }catch{}
+}
+function playDiffSound(kind){
+  const context=getAudioContext();
+  if(!context)return;
+  if(kind==='complete'){playTone(context,660,0,.09,.045);playTone(context,880,.1,.12,.045);playTone(context,1040,.22,.16,.045)}
+  else if(kind==='subtract')playTone(context,330,0,.055);
+  else playTone(context,520,0,.045);
+}
+function showDiffFeedback(name,kind){
+  const card=$('diffGrid').querySelector(`[data-diff-card="${name}"]`);
+  if(!card)return;
+  const className=kind==='subtract'?'feedback-subtract':'feedback-add';
+  clearTimeout(diffFeedbackTimers.get(name));
+  card.classList.remove('feedback-add','feedback-subtract');
+  void card.offsetWidth;
+  card.classList.add(className);
+  diffFeedbackTimers.set(name,setTimeout(()=>card.classList.remove(className),150));
+}
+function initDiffGrid(){
+  if($('diffGrid').children.length)return;
+  $('diffGrid').innerHTML=diffTypes.map(({name,included})=>`<div class="diff-cell ${included?'':'excluded'}" data-diff-card="${name}" role="button" tabindex="0"><div class="diff-cell-top"><h3>${name}</h3><span class="diff-key" data-diff-key="${name}"></span></div><div class="diff-count" data-diff-count="${name}">0</div><div class="diff-percent" data-diff-percent="${name}">${included?'0%':'목표 제외'}</div><button class="diff-decrease" type="button" data-diff-decrease="${name}">−1 감소</button></div>`).join('');
+}
 function saveDiff(){
   diff.target=Math.max(1,Number($('diffTarget').value)||100);
   diff.completed=isDiffComplete();
   localStorage.setItem(DIFF_KEY,JSON.stringify(diff));
   renderDiff();
 }
-function completeDiff(){
-  diff.completed=true;
-  localStorage.setItem(DIFF_KEY,JSON.stringify(diff));
-  renderDiff();
-  showToast(`목표 ${diff.target} WBC에 도달했습니다.`);
-  if('vibrate' in navigator)navigator.vibrate?.([80,50,120]);
-}
-function changeDiff(name,delta){
+function changeDiff(name){
   const type=diffTypes.find(t=>t.name===name);
-  if(!type)return;
-  if(delta>0){
-    if(isDiffComplete())return showToast('목표에 도달했습니다. 새 카운트 또는 실행 취소 후 입력하세요.');
-    diff.counts[name]=(diff.counts[name]||0)+1;
-    diff.stack.push(name);
-    const reached=type.included&&isDiffComplete();
-    if(reached)return completeDiff();
-  }else if((diff.counts[name]||0)>0){
-    diff.counts[name]--;
-    const i=diff.stack.lastIndexOf(name);
-    if(i>=0)diff.stack.splice(i,1);
-    diff.completed=false;
-  }
+  if(!type||diffEditMode)return false;
+  const wasComplete=isDiffComplete();
+  if(type.included&&wasComplete)return showToast('목표에 도달했습니다. nRBC 입력, 편집 또는 실행 취소가 가능합니다.'),false;
+  diff.counts[name]=(diff.counts[name]||0)+1;
+  diff.stack.push(name);
   saveDiff();
+  const reached=type.included&&!wasComplete&&isDiffComplete();
+  showDiffFeedback(name,'add');
+  playDiffSound(reached?'complete':'add');
+  if(reached){
+    showToast(`목표 ${diff.target} WBC에 도달했습니다.`);
+    if('vibrate' in navigator)navigator.vibrate?.([80,50,120]);
+  }
+  return true;
+}
+function decreaseDiff(name){
+  if(!diffEditMode||(diff.counts[name]||0)<=0)return false;
+  diff.counts[name]--;
+  const i=diff.stack.lastIndexOf(name);
+  if(i>=0)diff.stack.splice(i,1);
+  saveDiff();
+  showDiffFeedback(name,'subtract');
+  playDiffSound('subtract');
+  return true;
 }
 function renderDiff(){
+  initDiffGrid();
   const total=diffTotal(),target=Math.max(1,Number($('diffTarget').value)||100),complete=total>=target;
   diff.completed=complete;
-  $('diffGrid').innerHTML=diffTypes.map(({name,included})=>{
+  diffTypes.forEach(({name,included})=>{
     const count=diff.counts[name]||0,key=keyMap[name]||'';
-    return `<div class="diff-cell ${included?'':'excluded'} ${complete?'locked':''}"><div class="diff-cell-top"><h3>${name}</h3>${key?`<span class="diff-key">${key}</span>`:''}</div><div class="diff-count">${count}</div><div class="diff-percent">${included?(total?formatNumber(count/total*100,1):'0')+'%':'목표 제외'}</div><div class="diff-controls"><button data-diff-minus="${name}" ${count<=0?'disabled':''}>−</button><button class="add" data-diff-plus="${name}" ${complete?'disabled':''}>+1</button></div></div>`
-  }).join('');
-  qsa('[data-diff-plus]').forEach(b=>b.onclick=()=>changeDiff(b.dataset.diffPlus,1));
-  qsa('[data-diff-minus]').forEach(b=>b.onclick=()=>changeDiff(b.dataset.diffMinus,-1));
+    const card=$('diffGrid').querySelector(`[data-diff-card="${name}"]`),locked=included&&complete&&!diffEditMode;
+    card.classList.toggle('locked',locked);card.classList.toggle('editing',diffEditMode);
+    card.tabIndex=diffEditMode?-1:0;
+    card.setAttribute('role',diffEditMode?'group':'button');
+    if(locked)card.setAttribute('aria-disabled','true');else card.removeAttribute('aria-disabled');
+    card.setAttribute('aria-label',`${name}, ${count}${included?`, ${total?formatNumber(count/total*100,1):0}퍼센트`:', 목표 WBC에서 제외'}${locked?', 목표 완료로 잠김':diffEditMode?', 편집 모드':', 누르면 1 증가'}`);
+    card.querySelector(`[data-diff-count="${name}"]`).textContent=count;
+    card.querySelector(`[data-diff-percent="${name}"]`).textContent=included?(total?formatNumber(count/total*100,1):'0')+'%':'목표 제외';
+    const keyLabel=card.querySelector(`[data-diff-key="${name}"]`);
+    keyLabel.textContent=key;keyLabel.classList.toggle('hidden',!key);
+    card.querySelector(`[data-diff-decrease="${name}"]`).disabled=count<=0;
+  });
+  $('diffGrid').classList.toggle('edit-mode',diffEditMode);
   $('diffProgressText').textContent=`${total} / ${target}`;
   $('diffProgressBar').style.width=`${Math.min(100,total/target*100)}%`;
   $('diffStatus').textContent=complete?'목표 완료':total?'진행 중':'진행 전';
   $('nrbcCountSummary').textContent=diff.counts.nRBC||0;
   $('diffCompleteBanner').classList.toggle('hidden',!complete);
-  $('diffCompleteText').textContent=`${target} WBC 카운트를 완료했습니다. 추가 입력은 잠금 상태입니다.`;
+  $('diffCompleteText').textContent=`${target} WBC 카운트를 완료했습니다. WBC 카드는 잠기며 nRBC는 계속 입력할 수 있습니다.`;
   $('diffUndo').disabled=!diff.stack.length;
+  $('diffEditToggle').textContent=diffEditMode?'편집 완료':'편집';
+  $('diffEditToggle').setAttribute('aria-pressed',String(diffEditMode));
+  $('diffModeStatus').textContent=diffEditMode?'편집 모드 · 감소할 세포의 −1 버튼을 누르세요.':'일반 모드 · 카드를 누르면 +1';
+  $('diffModeStatus').classList.toggle('editing',diffEditMode);
 }
+$('diffGrid').addEventListener('click',e=>{
+  const decrease=e.target.closest('[data-diff-decrease]');
+  if(decrease){e.stopPropagation();decreaseDiff(decrease.dataset.diffDecrease);return}
+  const card=e.target.closest('[data-diff-card]');
+  if(card&&!diffEditMode)changeDiff(card.dataset.diffCard);
+});
+$('diffGrid').addEventListener('keydown',e=>{
+  const card=e.target.closest('[data-diff-card]');
+  if(!card||diffEditMode||!['Enter',' '].includes(e.key))return;
+  e.preventDefault();e.stopPropagation();changeDiff(card.dataset.diffCard);
+});
+$('diffEditToggle').onclick=()=>{diffEditMode=!diffEditMode;renderDiff()};
+$('diffSoundToggle').onclick=()=>{
+  soundEnabled=!soundEnabled;
+  localStorage.setItem(SOUND_KEY,JSON.stringify(soundEnabled));
+  $('diffSoundToggle').textContent=soundEnabled?'소리 켜짐':'소리 꺼짐';
+  $('diffSoundToggle').setAttribute('aria-pressed',String(soundEnabled));
+  if(soundEnabled)playDiffSound('add');
+};
+$('diffSoundToggle').textContent=soundEnabled?'소리 켜짐':'소리 꺼짐';
+$('diffSoundToggle').setAttribute('aria-pressed',String(soundEnabled));
 $('diffTarget').onchange=()=>{
-  diff.completed=false;
   saveDiff();
 };
 $('diffUndo').onclick=()=>{
   const n=diff.stack.pop();
-  if(n){diff.counts[n]--;diff.completed=false;saveDiff()}
+  if(n&&diff.counts[n]>0){diff.counts[n]--;saveDiff();showDiffFeedback(n,'subtract');playDiffSound('subtract')}
 };
-$('diffReset').onclick=()=>{if(confirm('현재 Diff count를 초기화할까요?')){diff={counts:Object.fromEntries(diffTypes.map(({name})=>[name,0])),stack:[],target:Number($('diffTarget').value)||100,completed:false};saveDiff()}};
+$('diffReset').onclick=()=>{if(confirm('현재 Diff count를 초기화할까요?')){diffEditMode=false;diff={counts:Object.fromEntries(diffTypes.map(({name})=>[name,0])),stack:[],target:Number($('diffTarget').value)||100,completed:false};saveDiff()}};
 function diffReport(){const total=diffTotal();const rows=diffTypes.filter(t=>t.included&&(diff.counts[t.name]||0)>0).map(t=>`${t.name}: ${diff.counts[t.name]} (${total?formatNumber(diff.counts[t.name]/total*100,1):0}%)`);if(diff.counts.nRBC>0)rows.push(`nRBC: ${diff.counts.nRBC} / ${total||$('diffTarget').value} WBC`);return [`Differential count (${total} WBC)`,...rows].join('\n')}
 $('diffCopy').onclick=()=>copyText(diffReport());
 

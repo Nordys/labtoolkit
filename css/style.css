@@ -70,3 +70,24 @@
 .privacy-notice{margin-top:16px;padding:16px;border-left:4px solid var(--primary);border-radius:8px;background:var(--surface-2)}
 .privacy-notice p{margin:6px 0 0;color:var(--muted);line-height:1.6}
 @media(max-width:560px){.about-hero{align-items:flex-start}.about-meta{grid-template-columns:1fr}}
+
+/* v1.0.1 differential counter interaction */
+.diff-setting-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.diff-mode-status{margin:-4px 0 14px;padding:9px 12px;border-radius:10px;background:var(--surface-2);color:var(--muted);font-size:12px;font-weight:800}
+.diff-mode-status.editing{background:#fff3e8;color:#8a4b12}
+.diff-cell{position:relative;min-height:154px;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;transition:border-color .12s,background-color .12s,box-shadow .12s,transform .12s}
+.diff-cell:focus-visible{outline:3px solid rgba(23,105,170,.28);outline-offset:2px}
+.diff-cell.locked{cursor:not-allowed;opacity:.68}
+.diff-cell.excluded.locked{cursor:pointer;opacity:1}
+.diff-cell.editing{cursor:default;border-color:#d89a61}
+.diff-decrease{display:none;width:100%;margin-top:12px;border:1px solid #d58991;border-radius:10px;padding:11px;background:var(--surface);color:var(--danger);font-weight:900;cursor:pointer}
+.diff-grid.edit-mode .diff-decrease{display:block}
+.diff-decrease:disabled{opacity:.4;cursor:not-allowed}
+.diff-cell.feedback-add{animation:diff-add-feedback .13s ease-out}
+.diff-cell.feedback-subtract{animation:diff-subtract-feedback .13s ease-out}
+.dark .diff-mode-status.editing{background:#402a19;color:#ffd3a6}
+.dark .diff-cell.editing{border-color:#b97943}
+@keyframes diff-add-feedback{0%{transform:scale(.97);background:#cfe9fb;box-shadow:0 0 0 3px rgba(23,105,170,.22)}100%{transform:scale(1);background:var(--surface-2);box-shadow:none}}
+@keyframes diff-subtract-feedback{0%{transform:scale(.97);background:#f9d9dc;box-shadow:0 0 0 3px rgba(178,58,72,.2)}100%{transform:scale(1);background:var(--surface-2);box-shadow:none}}
+@media(prefers-reduced-motion:reduce){.diff-cell{transition:none}.diff-cell.feedback-add,.diff-cell.feedback-subtract{animation-duration:.01ms}}
+@media(max-width:700px){.diff-settings{gap:10px}.diff-setting-actions{width:100%;display:grid;grid-template-columns:repeat(3,1fr)}.diff-setting-actions button{width:100%}.diff-cell{min-height:146px;padding:16px}.diff-count{font-size:36px}}
