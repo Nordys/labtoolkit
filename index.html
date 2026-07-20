@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1769aa" />
+  <meta name="description" content="임상검사실용 계산기, Diff counter, field counter, morphology note" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css" />
+  <title>LabCalc</title>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><div class="brand-mark">LC</div><div><strong>LabCalc</strong><span>Laboratory toolkit</span></div></div>
+      <nav class="nav-list" aria-label="도구 메뉴">
+        <p class="nav-group">CALCULATORS</p>
+        <button class="nav-item active" data-page="rpi"><span>01</span>RPI 계산기</button>
+        <button class="nav-item" data-page="chem"><span>02</span>CHEM POC</button>
+        <button class="nav-item" data-page="neubauer"><span>03</span>Neubauer</button>
+        <p class="nav-group">MICROSCOPY</p>
+        <button class="nav-item" data-page="diff"><span>04</span>Diff &amp; Morphology</button>
+        <button class="nav-item" data-page="field"><span>05</span>Field Counter</button>
+        <p class="nav-group">LOG</p>
+        <button class="nav-item" data-page="history"><span>06</span>오늘 기록 <b id="historyCount">0</b></button>
+        <p class="nav-group">APP</p>
+        <button class="nav-item" data-page="about"><span>07</span>정보</button>
+      </nav>
+      <div class="sidebar-footer"><p>자료는 이 기기의 브라우저에만 저장됩니다. 환자 식별정보는 입력하지 마세요.</p></div>
+    </aside>
+
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div><p class="eyebrow">CLINICAL LABORATORY TOOLKIT</p><h1 id="pageTitle">RPI 계산기</h1></div>
+        <div class="topbar-actions"><button id="installButton" class="icon-button hidden" type="button">설치</button><button id="mobileMenu" class="icon-button mobile-only" type="button">메뉴</button><button id="themeToggle" class="icon-button" type="button">다크</button></div>
+      </header>
+
+      <section class="page active" data-page-panel="rpi">
+        <div class="calculator-workbench">
+          <div class="calculator-main">
+<article class="tool-card">
+          <div class="tool-header"><div><span class="tag">HEMATOLOGY</span><h2>Reticulocyte Production Index</h2></div><span class="status-dot">v1.0.0</span></div>
+          <p class="formula">RPI = Retic × (환자 Hct ÷ 정상 Hct) ÷ 성숙 보정계수</p>
+          <div class="form-grid">
+            <label>Reticulocyte (%)<input id="rpiRetic" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            <label>Patient Hct (%)<input id="rpiHct" type="number" min="0" max="80" step="0.1" inputmode="decimal" /></label>
+            <label>Normal Hct (%)<input id="rpiNormalHct" type="number" min="1" max="80" step="0.1" value="45" inputmode="decimal" /></label>
+            <label>성숙 보정계수<input id="rpiMaturation" type="text" value="자동" readonly /></label>
+          </div>
+          <div class="result-grid"><div class="result-box"><span>Corrected Retic</span><strong id="rpiCorrected">—</strong></div><div class="result-box primary"><span>RPI</span><strong id="rpiResult">—</strong></div></div>
+          <div class="button-row"><button class="primary-button" id="rpiCalculate">계산</button><button class="secondary-button" data-copy-target="rpiResult">결과 복사</button><button class="ghost-button" data-reset="rpi">초기화</button></div>
+        </article>
+          </div>
+<aside class="history-rail">
+            <div class="history-rail-header"><div><span class="tag">TODAY ONLY</span><h2>오늘 기록</h2></div><button class="danger-button small-button" data-history-clear>삭제</button></div>
+            <div class="history-list compact-history" data-history-list></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="page" data-page-panel="chem">
+        <div class="calculator-workbench">
+          <div class="calculator-main">
+<article class="tool-card">
+          <div class="tool-header"><div><span class="tag">CHEMISTRY · POC</span><h2>CHEM POC 계산기</h2></div></div>
+          <div class="tabs"><button class="tab active" data-tab="be">BE(B)</button><button class="tab" data-tab="ag">AG</button><button class="tab" data-tab="osmo">Osmolality</button><button class="tab" data-tab="ca">Ca(7.4)</button><button class="tab" data-tab="egfr">eGFR</button></div>
+          <div class="tab-panel active" data-panel="be"><p class="formula">tHb = 0.34 × Hct</p><div class="form-grid"><label>pH<input id="bePh" type="number" step="0.001" /></label><label>HCO₃⁻ (mmol/L)<input id="beHco3" type="number" step="0.1" /></label><label>Hct (%)<input id="beHct" type="number" step="0.1" /></label></div><div class="result-grid one"><div class="result-box primary"><span>BE(B) mmol/L</span><strong id="beResult">—</strong></div></div><div class="button-row"><button class="primary-button" id="beCalculate">계산</button><button class="secondary-button" data-copy-target="beResult">결과 복사</button></div></div>
+          <div class="tab-panel" data-panel="ag"><p class="formula">AG = (Na + K) − (Cl + HCO₃)</p><div class="form-grid"><label>Na<input id="agNa" type="number" step="0.1" /></label><label>K<input id="agK" type="number" step="0.1" /></label><label>Cl<input id="agCl" type="number" step="0.1" /></label><label>HCO₃<input id="agHco3" type="number" step="0.1" /></label></div><div class="result-grid one"><div class="result-box primary"><span>Anion Gap mmol/L</span><strong id="agResult">—</strong></div></div><div class="button-row"><button class="primary-button" id="agCalculate">계산</button><button class="secondary-button" data-copy-target="agResult">결과 복사</button></div></div>
+          <div class="tab-panel" data-panel="osmo"><p class="formula">1.86 × Na + BUN/2.8 + Glucose/18 + 9</p><div class="form-grid"><label>Na<input id="osmoNa" type="number" step="0.1" /></label><label>BUN<input id="osmoBun" type="number" step="0.1" /></label><label>Glucose<input id="osmoGlucose" type="number" step="0.1" /></label></div><div class="result-grid one"><div class="result-box primary"><span>Calculated Osmolality mOsm/kg</span><strong id="osmoResult">—</strong></div></div><div class="button-row"><button class="primary-button" id="osmoCalculate">계산</button><button class="secondary-button" data-copy-target="osmoResult">결과 복사</button></div></div>
+          <div class="tab-panel" data-panel="ca"><p class="formula">Ca(7.4) = Ca × 10<sup>−0.178 × (7.4 − pH)</sup></p><div class="form-grid"><label>Ionized Ca<input id="caValue" type="number" step="0.001" /></label><label>pH<input id="caPh" type="number" step="0.001" /></label></div><div class="result-grid one"><div class="result-box primary"><span>Ca(7.4) mmol/L</span><strong id="caResult">—</strong></div></div><div class="button-row"><button class="primary-button" id="caCalculate">계산</button><button class="secondary-button" data-copy-target="caResult">결과 복사</button></div></div>
+          <div class="tab-panel" data-panel="egfr"><p class="formula">2021 CKD-EPI creatinine equation</p><div class="form-grid"><label>나이<input id="egfrAge" type="number" min="18" max="120" /></label><label>성별<select id="egfrSex"><option value="male">남성</option><option value="female">여성</option></select></label><label>Creatinine<input id="egfrCr" type="number" min="0.01" step="0.01" /></label></div><div class="result-grid one"><div class="result-box primary"><span>eGFR mL/min/1.73m²</span><strong id="egfrResult">—</strong></div></div><div class="button-row"><button class="primary-button" id="egfrCalculate">계산</button><button class="secondary-button" data-copy-target="egfrResult">결과 복사</button></div></div>
+        </article>
+          </div>
+<aside class="history-rail">
+            <div class="history-rail-header"><div><span class="tag">TODAY ONLY</span><h2>오늘 기록</h2></div><button class="danger-button small-button" data-history-clear>삭제</button></div>
+            <div class="history-list compact-history" data-history-list></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="page" data-page-panel="neubauer">
+        <div class="calculator-workbench">
+          <div class="calculator-main"><article class="tool-card"><div class="tool-header"><div><span class="tag">BODY FLUID · MANUAL COUNT</span><h2>Neubauer Chamber</h2></div></div><div class="segmented-control"><button class="segment active" data-neubauer-mode="wbc">WBC 분획</button><button class="segment" data-neubauer-mode="rbc">RBC 분획</button></div><p class="formula" id="neubauerNote"></p><div class="form-grid"><label>카운트한 분획 수<input id="neubauerSquares" type="number" min="0.001" step="any" value="4" /></label><label>희석 배수<input id="neubauerDilution" type="number" min="0.001" step="any" value="20" /></label><label>카운트한 셀 수<input id="neubauerCells" type="number" min="0" step="1" /></label><label>총 카운트 부피 (μL)<input id="neubauerVolume" readonly /></label></div><div class="result-grid"><div class="result-box"><span>계산식</span><strong id="neubauerExpression">—</strong></div><div class="result-box primary"><span id="neubauerResultLabel"></span><strong id="neubauerResult">—</strong></div></div><div class="button-row"><button class="primary-button" id="neubauerCalculate">계산</button><button class="secondary-button" data-copy-target="neubauerResult">결과 복사</button><button class="ghost-button" data-reset="neubauer">초기화</button></div></article></div>
+<aside class="history-rail">
+            <div class="history-rail-header"><div><span class="tag">TODAY ONLY</span><h2>오늘 기록</h2></div><button class="danger-button small-button" data-history-clear>삭제</button></div>
+            <div class="history-list compact-history" data-history-list></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="page" data-page-panel="diff">
+        <div class="microscopy-workbench">
+          <div class="microscopy-main">
+            <article class="tool-card wide-card">
+              <div class="tool-header">
+                <div><span class="tag">HEMATOLOGY · MICROSCOPY</span><h2>Differential Counter</h2></div>
+                <div class="counter-target"><label>목표 WBC<input id="diffTarget" type="number" min="1" max="1000" value="100" /></label></div>
+              </div>
+              <div class="diff-settings">
+                <p>nRBC는 별도 집계되며 WBC 목표 수와 백분율 분모에서 제외됩니다.</p>
+                <button class="secondary-button small-button" id="keyMappingToggle" type="button" aria-expanded="false">키 맵핑</button>
+              </div>
+              <section id="keyMappingPanel" class="key-mapping-panel hidden" aria-label="Diff counter 키 맵핑 설정">
+                <div class="key-mapping-header">
+                  <div><strong>키 맵핑</strong><p>입력 칸을 선택하고 사용할 키를 누르세요. 빈칸으로 두면 버튼으로만 입력합니다.</p></div>
+                  <button class="ghost-button small-button" id="keyMappingReset" type="button">기본값 복원</button>
+                </div>
+                <div id="keyMappingGrid" class="key-mapping-grid"></div>
+                <p id="keyMappingMessage" class="key-mapping-message" aria-live="polite"></p>
+              </section>
+              <div id="diffCompleteBanner" class="completion-banner hidden" role="status" aria-live="assertive">
+                <strong>✓ Differential Complete</strong>
+                <span id="diffCompleteText">목표 WBC에 도달했습니다.</span>
+              </div>
+              <div class="progress-wrap">
+                <div class="progress-meta"><strong id="diffProgressText">0 / 100</strong><span id="diffStatus">진행 전</span></div>
+                <div class="progress-track"><div id="diffProgressBar"></div></div>
+                <p class="nrbc-summary">nRBC <strong id="nrbcCountSummary">0</strong> — WBC 목표 수와 백분율 계산에서 제외</p>
+              </div>
+              <div id="diffGrid" class="diff-grid compact-diff-grid"></div>
+              <div class="button-row"><button class="secondary-button" id="diffUndo">실행 취소 (Z)</button><button class="secondary-button" id="diffCopy">결과 복사</button><button class="danger-button" id="diffReset">새 카운트</button></div>
+              <p class="helper" id="diffKeyHelper"></p>
+            </article>
+
+            <article class="tool-card wide-card morphology-inline-card">
+              <div class="tool-header"><div><span class="tag">MORPHOLOGY</span><h2>Morphology Note</h2></div><span class="status-dot">LOCAL</span></div>
+              <div class="morph-layout"><div><h3>RBC</h3><div class="morph-grid" id="rbcMorph"></div></div><div><h3>WBC</h3><div class="morph-grid" id="wbcMorph"></div></div><div><h3>Platelet</h3><div class="morph-grid" id="pltMorph"></div></div></div>
+              <label class="memo-label">Free note<textarea id="morphMemo" rows="4" placeholder="환자명·등록번호 등 식별정보는 입력하지 마세요."></textarea></label>
+              <div class="button-row"><button class="primary-button" id="microscopySave">Diff + Note 기록 저장</button><button class="secondary-button" id="morphCopy">보고용 문구 복사</button><button class="danger-button" id="morphReset">노트 초기화</button></div>
+              <pre id="morphPreview" class="report-preview">선택한 항목이 여기에 표시됩니다.</pre>
+            </article>
+          </div>
+
+          <aside class="history-rail">
+            <div class="history-rail-header"><div><span class="tag">TODAY ONLY</span><h2>오늘 기록</h2></div><button class="danger-button small-button" data-history-clear>삭제</button></div>
+            <div class="history-list compact-history" data-history-list></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="page" data-page-panel="field">
+        <article class="tool-card field-counter-card">
+          <div class="tool-header"><div><span class="tag">MICROSCOPY</span><h2>Field Counter</h2></div></div>
+          <div class="dual-counter-layout">
+            <section class="counter-panel main-counter-panel">
+              <div class="field-display main-display"><span>메인 카운터</span><strong id="mainCount">0</strong><small>count</small></div>
+              <div class="field-actions"><button id="mainMinus" class="field-button secondary">−</button><button id="mainPlus" class="field-button primary">+</button></div>
+              <button id="mainReset" class="danger-button counter-reset">메인 카운터 초기화</button>
+            </section>
+            <section class="counter-panel">
+              <div class="field-display"><span>관찰 필드</span><strong id="fieldCount">0</strong><small>fields</small></div>
+              <div class="field-actions"><button id="fieldMinus" class="field-button secondary">−</button><button id="fieldPlus" class="field-button primary">+</button></div>
+              <button id="fieldOnlyReset" class="danger-button counter-reset">필드 카운터 초기화</button>
+            </section>
+          </div>
+          <div class="form-grid one-col"><label>관찰 구역 메모<input id="fieldZone" type="text" placeholder="예: ideal zone, feather edge" /></label><label>목표 필드 수<input id="fieldTarget" type="number" min="1" value="20" /></label></div>
+          <div class="button-row"><button class="secondary-button" id="fieldCopy">기록 복사</button><button class="danger-button" id="fieldReset">모두 초기화</button></div>
+          <p class="helper">메인 카운터: Space +1 · Backspace −1 &nbsp;|&nbsp; 필드 카운터: → +1 · ← −1</p>
+        </article>
+      </section>
+
+      <section class="page" data-page-panel="history"><article class="tool-card"><div class="tool-header"><div><span class="tag">TODAY ONLY</span><h2>오늘 기록</h2></div><button id="historyClear" class="danger-button" data-history-clear>전체 삭제</button></div><div id="historyList" class="history-list" data-history-list></div></article></section>
+
+      <section class="page" data-page-panel="about">
+        <article class="tool-card about-card">
+          <div class="about-hero">
+            <div class="about-logo">LC</div>
+            <div>
+              <span class="tag">CLINICAL LABORATORY TOOLKIT</span>
+              <h2>LabCalc</h2>
+              <p>검사실 계산과 현미경 작업을 위한 오프라인 지원 PWA 도구입니다.</p>
+            </div>
+          </div>
+          <dl class="about-meta">
+            <div><dt>Version</dt><dd>1.0.0</dd></div>
+            <div><dt>Build</dt><dd>2026-07-20</dd></div>
+            <div><dt>Developer</dt><dd>노의태</dd></div>
+            <div><dt>Storage</dt><dd>이 기기의 브라우저</dd></div>
+          </dl>
+          <section class="release-notes">
+            <span class="tag">WHAT'S NEW</span>
+            <h3>v1.0.0</h3>
+            <ul>
+              <li>RPI, BE(B), AG, Osmolality, Ca(7.4), eGFR 계산기</li>
+              <li>Neubauer WBC/RBC 수기계산</li>
+              <li>Diff Counter와 Morphology Note 통합</li>
+              <li>nRBC 별도 집계, 목표 도달 잠금 및 실행 취소</li>
+              <li>사용자 지정 키 맵핑</li>
+              <li>메인 카운터와 Field Counter</li>
+              <li>오늘 기록, 다크 모드, 설치 및 오프라인 사용</li>
+            </ul>
+          </section>
+          <div class="privacy-notice">
+            <strong>사용 시 주의</strong>
+            <p>환자명·등록번호 등 환자 식별정보를 입력하지 마세요. 계산 결과와 기록은 현재 기기의 브라우저에만 저장됩니다.</p>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="js/app.js"></script>
+</body>
+</html>
