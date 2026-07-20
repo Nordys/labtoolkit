@@ -1,4 +1,4 @@
-# LabCalc v1.0.0
+# LabToolkit v1.0.0
 
 임상검사실 계산과 현미경 작업을 위한 정적 PWA 도구입니다.
 
@@ -30,3 +30,4 @@
 - Version: 1.0.0
 - Build: 2026-07-20
 - Developer: 노의태
+
