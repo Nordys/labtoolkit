@@ -43,7 +43,7 @@
         <div class="calculator-workbench">
           <div class="calculator-main">
 <article class="tool-card">
-          <div class="tool-header"><div><span class="tag">HEMATOLOGY</span><h2>Reticulocyte Production Index</h2></div><span class="status-dot">v1.0.1</span></div>
+          <div class="tool-header"><div><span class="tag">HEMATOLOGY</span><h2>Reticulocyte Production Index</h2></div><span class="status-dot">v1.0.2</span></div>
           <p class="formula">RPI = Retic × (환자 Hct ÷ 정상 Hct) ÷ 성숙 보정계수</p>
           <div class="form-grid">
             <label>Reticulocyte (%)<input id="rpiRetic" type="number" min="0" step="0.1" inputmode="decimal" /></label>
@@ -150,21 +150,26 @@
       <section class="page" data-page-panel="field">
         <article class="tool-card field-counter-card">
           <div class="tool-header"><div><span class="tag">MICROSCOPY</span><h2>Field Counter</h2></div></div>
+          <div id="fieldCompleteBanner" class="completion-banner hidden" role="status" aria-live="polite">
+            <strong>✓ Field Count Complete</strong>
+            <span id="fieldCompleteText">목표 필드에 도달했습니다.</span>
+          </div>
+          <div class="field-progress-summary"><span>현재 필드 / 목표 필드</span><strong id="fieldProgressText">0 / 20</strong><small id="fieldStatus">진행 전</small></div>
           <div class="dual-counter-layout">
-            <section class="counter-panel main-counter-panel">
+            <section class="counter-panel main-counter-panel" id="mainCounterPanel">
               <div class="field-display main-display"><span>메인 카운터</span><strong id="mainCount">0</strong><small>count</small></div>
               <div class="field-actions"><button id="mainMinus" class="field-button secondary">−</button><button id="mainPlus" class="field-button primary">+</button></div>
               <button id="mainReset" class="danger-button counter-reset">메인 카운터 초기화</button>
             </section>
-            <section class="counter-panel">
+            <section class="counter-panel" id="fieldCounterPanel">
               <div class="field-display"><span>관찰 필드</span><strong id="fieldCount">0</strong><small>fields</small></div>
               <div class="field-actions"><button id="fieldMinus" class="field-button secondary">−</button><button id="fieldPlus" class="field-button primary">+</button></div>
               <button id="fieldOnlyReset" class="danger-button counter-reset">필드 카운터 초기화</button>
             </section>
           </div>
           <div class="form-grid one-col"><label>관찰 구역 메모<input id="fieldZone" type="text" placeholder="예: ideal zone, feather edge" /></label><label>목표 필드 수<input id="fieldTarget" type="number" min="1" value="20" /></label></div>
-          <div class="button-row"><button class="secondary-button" id="fieldCopy">기록 복사</button><button class="danger-button" id="fieldReset">모두 초기화</button></div>
-          <p class="helper">메인 카운터: Space +1 · Backspace −1 &nbsp;|&nbsp; 필드 카운터: → +1 · ← −1</p>
+          <div class="button-row"><button class="secondary-button" id="fieldUndo">실행 취소 (Z)</button><button class="secondary-button" id="fieldCopy">기록 복사</button><button class="danger-button" id="fieldReset">모두 초기화</button></div>
+          <p class="helper">메인 카운터: Space +1 · Backspace −1 &nbsp;|&nbsp; 필드 카운터: → +1 · ← −1 &nbsp;|&nbsp; Z 실행 취소</p>
         </article>
       </section>
 
@@ -181,15 +186,18 @@
             </div>
           </div>
           <dl class="about-meta">
-            <div><dt>Version</dt><dd>1.0.1</dd></div>
+            <div><dt>Version</dt><dd>1.0.2</dd></div>
             <div><dt>Build</dt><dd>2026-07-21</dd></div>
             <div><dt>Developer</dt><dd>노의태</dd></div>
             <div><dt>Storage</dt><dd>이 기기의 브라우저</dd></div>
           </dl>
           <section class="release-notes">
             <span class="tag">WHAT'S NEW</span>
-            <h3>v1.0.1</h3>
+            <h3>v1.0.2</h3>
             <ul>
+              <li>목표 필드 도달 시 Field와 Main 증가 자동 잠금</li>
+              <li>완료 배너, 목표 진행 상태 및 Field 실행 취소</li>
+              <li>감소·실행 취소·목표 변경 시 자동 잠금 해제</li>
               <li>세포 카드 전체를 누르는 빠른 Differential counting</li>
               <li>감소 작업을 분리한 편집 모드</li>
               <li>선택 가능한 입력음과 목표 완료음</li>

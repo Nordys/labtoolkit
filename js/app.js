@@ -85,7 +85,7 @@ function playTone(context,frequency,start,duration,volume=.035){
     oscillator.connect(gain);gain.connect(context.destination);oscillator.start(at);oscillator.stop(at+duration+.01);
   }catch{}
 }
-function playDiffSound(kind){
+function playCounterSound(kind){
   const context=getAudioContext();
   if(!context)return;
   if(kind==='complete'){playTone(context,660,0,.09,.045);playTone(context,880,.1,.12,.045);playTone(context,1040,.22,.16,.045)}
@@ -122,7 +122,7 @@ function changeDiff(name){
   saveDiff();
   const reached=type.included&&!wasComplete&&isDiffComplete();
   showDiffFeedback(name,'add');
-  playDiffSound(reached?'complete':'add');
+  playCounterSound(reached?'complete':'add');
   if(reached){
     showToast(`목표 ${diff.target} WBC에 도달했습니다.`);
     if('vibrate' in navigator)navigator.vibrate?.([80,50,120]);
@@ -136,7 +136,7 @@ function decreaseDiff(name){
   if(i>=0)diff.stack.splice(i,1);
   saveDiff();
   showDiffFeedback(name,'subtract');
-  playDiffSound('subtract');
+  playCounterSound('subtract');
   return true;
 }
 function renderDiff(){
@@ -187,7 +187,7 @@ $('diffSoundToggle').onclick=()=>{
   localStorage.setItem(SOUND_KEY,JSON.stringify(soundEnabled));
   $('diffSoundToggle').textContent=soundEnabled?'소리 켜짐':'소리 꺼짐';
   $('diffSoundToggle').setAttribute('aria-pressed',String(soundEnabled));
-  if(soundEnabled)playDiffSound('add');
+  if(soundEnabled)playCounterSound('add');
 };
 $('diffSoundToggle').textContent=soundEnabled?'소리 켜짐':'소리 꺼짐';
 $('diffSoundToggle').setAttribute('aria-pressed',String(soundEnabled));
@@ -196,25 +196,82 @@ $('diffTarget').onchange=()=>{
 };
 $('diffUndo').onclick=()=>{
   const n=diff.stack.pop();
-  if(n&&diff.counts[n]>0){diff.counts[n]--;saveDiff();showDiffFeedback(n,'subtract');playDiffSound('subtract')}
+  if(n&&diff.counts[n]>0){diff.counts[n]--;saveDiff();showDiffFeedback(n,'subtract');playCounterSound('subtract')}
 };
 $('diffReset').onclick=()=>{if(confirm('현재 Diff count를 초기화할까요?')){diffEditMode=false;diff={counts:Object.fromEntries(diffTypes.map(({name})=>[name,0])),stack:[],target:Number($('diffTarget').value)||100,completed:false};saveDiff()}};
 function diffReport(){const total=diffTotal();const rows=diffTypes.filter(t=>t.included&&(diff.counts[t.name]||0)>0).map(t=>`${t.name}: ${diff.counts[t.name]} (${total?formatNumber(diff.counts[t.name]/total*100,1):0}%)`);if(diff.counts.nRBC>0)rows.push(`nRBC: ${diff.counts.nRBC} / ${total||$('diffTarget').value} WBC`);return [`Differential count (${total} WBC)`,...rows].join('\n')}
 $('diffCopy').onclick=()=>copyText(diffReport());
 
-let field=safeParse(FIELD_KEY,{count:0,mainCount:0,zone:'',target:20});
-field.mainCount=Number(field.mainCount)||0;
-$('fieldZone').value=field.zone;$('fieldTarget').value=field.target;
-function saveField(){field.zone=$('fieldZone').value;field.target=Number($('fieldTarget').value)||20;localStorage.setItem(FIELD_KEY,JSON.stringify(field));$('fieldCount').textContent=field.count;$('mainCount').textContent=field.mainCount}
-function changeField(d){field.count=Math.max(0,field.count+d);saveField()}
-function changeMain(d){field.mainCount=Math.max(0,field.mainCount+d);saveField()}
+let field=safeParse(FIELD_KEY,{count:0,mainCount:0,zone:'',target:20,completed:false,stack:[]});
+if(!field||typeof field!=='object')field={count:0,mainCount:0,zone:'',target:20,completed:false,stack:[]};
+field.count=Math.max(0,Number(field.count)||0);
+field.mainCount=Math.max(0,Number(field.mainCount)||0);
+field.zone=typeof field.zone==='string'?field.zone:'';
+if(!Array.isArray(field.stack))field.stack=[];
+field.stack=field.stack.filter(type=>type==='field'||type==='main');
+$('fieldZone').value=field.zone;$('fieldTarget').value=field.target??'';
+function fieldTargetValue(){const raw=$('fieldTarget').value.trim(),value=Number(raw);return raw&&Number.isFinite(value)&&value>0?value:null}
+function isFieldComplete(){const target=fieldTargetValue();return target!==null&&field.count>=target}
+function renderField(){
+  const target=fieldTargetValue(),complete=target!==null&&field.count>=target;
+  field.completed=complete;
+  $('fieldCount').textContent=field.count;$('mainCount').textContent=field.mainCount;
+  $('fieldProgressText').textContent=`${field.count} / ${target??'—'}`;
+  $('fieldStatus').textContent=target===null?'자동 완료 꺼짐':complete?'목표 완료':field.count?'진행 중':'진행 전';
+  $('fieldCompleteBanner').classList.toggle('hidden',!complete);
+  $('fieldCompleteText').textContent=`${target}개 필드 관찰을 완료했습니다. 감소 또는 실행 취소 후 증가할 수 있습니다.`;
+  ['fieldPlus','mainPlus'].forEach(id=>{$(id).disabled=complete;$(id).setAttribute('aria-disabled',String(complete))});
+  $('fieldCounterPanel').classList.toggle('locked',complete);$('mainCounterPanel').classList.toggle('locked',complete);
+  $('fieldUndo').disabled=!field.stack.length;
+}
+function saveField(){
+  field.zone=$('fieldZone').value;
+  field.target=fieldTargetValue();
+  field.completed=isFieldComplete();
+  localStorage.setItem(FIELD_KEY,JSON.stringify(field));
+  renderField();
+}
+function completeField(){
+  playCounterSound('complete');
+  showToast(`목표 ${field.target}개 필드에 도달했습니다.`);
+  if('vibrate'in navigator)navigator.vibrate?.([80,50,120]);
+}
+function removeLastFieldStackEntry(type){const i=field.stack.lastIndexOf(type);if(i>=0)field.stack.splice(i,1)}
+function changeField(d){
+  const wasComplete=isFieldComplete();
+  if(d>0&&wasComplete)return showToast('목표 필드에 도달했습니다. 감소, 실행 취소 또는 목표 변경 후 입력하세요.'),false;
+  const next=Math.max(0,field.count+d);
+  if(next===field.count)return false;
+  field.count=next;
+  if(d>0)field.stack.push('field');else removeLastFieldStackEntry('field');
+  saveField();
+  if(!wasComplete&&isFieldComplete())completeField();
+  return true;
+}
+function changeMain(d){
+  if(d>0&&isFieldComplete())return showToast('목표 필드 완료 상태에서는 증가할 수 없습니다.'),false;
+  const next=Math.max(0,field.mainCount+d);
+  if(next===field.mainCount)return false;
+  field.mainCount=next;
+  if(d>0)field.stack.push('main');else removeLastFieldStackEntry('main');
+  saveField();
+  return true;
+}
 $('fieldPlus').onclick=()=>changeField(1);$('fieldMinus').onclick=()=>changeField(-1);
 $('mainPlus').onclick=()=>changeMain(1);$('mainMinus').onclick=()=>changeMain(-1);
-$('fieldZone').oninput=saveField;$('fieldTarget').onchange=saveField;
-$('mainReset').onclick=()=>{field.mainCount=0;saveField()};
-$('fieldOnlyReset').onclick=()=>{field.count=0;saveField()};
-$('fieldReset').onclick=()=>{field.count=0;field.mainCount=0;saveField()};
-$('fieldCopy').onclick=()=>copyText(`Main count: ${field.mainCount}\nField count: ${field.count}${field.zone?`\nZone: ${field.zone}`:''}\nTarget fields: ${field.target}`);
+$('fieldZone').oninput=saveField;$('fieldTarget').oninput=saveField;
+$('mainReset').onclick=()=>{field.mainCount=0;field.stack=field.stack.filter(type=>type!=='main');saveField()};
+$('fieldOnlyReset').onclick=()=>{field.count=0;field.stack=field.stack.filter(type=>type!=='field');saveField()};
+$('fieldReset').onclick=()=>{field.count=0;field.mainCount=0;field.stack=[];saveField()};
+$('fieldUndo').onclick=()=>{
+  while(field.stack.length){
+    const type=field.stack.pop();
+    if(type==='field'&&field.count>0){field.count--;saveField();playCounterSound('subtract');return}
+    if(type==='main'&&field.mainCount>0){field.mainCount--;saveField();playCounterSound('subtract');return}
+  }
+  saveField();
+};
+$('fieldCopy').onclick=()=>copyText(`Main count: ${field.mainCount}\nField count: ${field.count}${field.zone?`\nZone: ${field.zone}`:''}\nTarget fields: ${field.target??'Off'}`);
 
 const morphGroups={rbcMorph:['Anisocytosis','Microcytosis','Macrocytosis','Hypochromia','Poikilocytosis','Target cell','Ovalocyte','Schistocyte','Spherocyte','Polychromasia'],wbcMorph:['Toxic granulation','Vacuolation','Döhle body','Hypersegmentation','Reactive lymphocyte','Atypical cell'],pltMorph:['Adequacy','Clumping','Giant platelet','Platelet satellitism']};
 const grades=['','Rare','Few','+','++','+++','Present','Adequate','Decreased','Increased'];let morph=safeParse(MORPH_KEY,{values:{},memo:''});
@@ -256,7 +313,7 @@ function renderKeyMapping(){
 $('keyMappingToggle').onclick=()=>{const panel=$('keyMappingPanel'),open=panel.classList.toggle('hidden')===false;$('keyMappingToggle').setAttribute('aria-expanded',String(open));$('keyMappingToggle').textContent=open?'키 맵핑 닫기':'키 맵핑'};
 $('keyMappingReset').onclick=()=>{keyMap={...defaultKeyMap};$('keyMappingMessage').textContent='기본 키 배열로 복원했습니다.';saveKeyMap()};
 
-document.addEventListener('keydown',e=>{const active=document.querySelector('.page.active')?.dataset.pagePanel;const tag=document.activeElement?.tagName;if(['INPUT','TEXTAREA','SELECT'].includes(tag))return;if(active==='diff'){const pressed=normalizedKey(e.key);const target=Object.entries(keyMap).find(([,key])=>normalizedKey(key)===pressed)?.[0];if(target==='Undo'){$('diffUndo').click();return}if(target&&diffTypes.some(t=>t.name===target)){changeDiff(target,1);return}}if(active==='field'){if(e.code==='Space'){e.preventDefault();changeMain(1)}if(e.key==='Backspace'){e.preventDefault();changeMain(-1)}if(e.key==='ArrowRight'){e.preventDefault();changeField(1)}if(e.key==='ArrowLeft'){e.preventDefault();changeField(-1)}}});
+document.addEventListener('keydown',e=>{const active=document.querySelector('.page.active')?.dataset.pagePanel;const tag=document.activeElement?.tagName;if(['INPUT','TEXTAREA','SELECT'].includes(tag))return;if(active==='diff'){const pressed=normalizedKey(e.key);const target=Object.entries(keyMap).find(([,key])=>normalizedKey(key)===pressed)?.[0];if(target==='Undo'){$('diffUndo').click();return}if(target&&diffTypes.some(t=>t.name===target)){changeDiff(target,1);return}}if(active==='field'){if(normalizedKey(e.key)==='Z'){$('fieldUndo').click();return}if(e.code==='Space'){e.preventDefault();changeMain(1)}if(e.key==='Backspace'){e.preventDefault();changeMain(-1)}if(e.key==='ArrowRight'){e.preventDefault();changeField(1)}if(e.key==='ArrowLeft'){e.preventDefault();changeField(-1)}}});
 qsa('input').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){const p=i.closest('.page'),a=p?.querySelector('.tab-panel.active')||p;a?.querySelector('.primary-button')?.click()}}));
 function clearHistory(){localStorage.setItem(HISTORY_KEY,JSON.stringify({date:todayString(),items:[]}));renderHistory()}qsa('[data-history-clear]').forEach(button=>button.onclick=clearHistory);
 function applyTheme(t){document.body.classList.toggle('dark',t==='dark');$('themeToggle').textContent=t==='dark'?'라이트':'다크';localStorage.setItem(THEME_KEY,t)}$('themeToggle').onclick=()=>applyTheme(document.body.classList.contains('dark')?'light':'dark');
